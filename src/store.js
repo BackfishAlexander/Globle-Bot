@@ -22,18 +22,39 @@
 const fs = require("fs");
 const path = require("path");
 
-const DATA_DIR = path.join(__dirname, "..", "data");
-const FILE = path.join(DATA_DIR, "state.json");
+/**
+ * Where to persist the writable game state. On ephemeral hosts (Railway, Fly,
+ * containers) this MUST live on a persistent volume, not the app directory,
+ * or it resets on every deploy. Resolution order:
+ *   1. STATE_FILE                      — explicit full path
+ *   2. RAILWAY_VOLUME_MOUNT_PATH/...   — auto-detected Railway volume
+ *   3. <project>/data/state.json       — local default (dev)
+ */
+function resolveStateFile() {
+  if (process.env.STATE_FILE) return path.resolve(process.env.STATE_FILE);
+  if (process.env.RAILWAY_VOLUME_MOUNT_PATH) {
+    return path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, "state.json");
+  }
+  return path.join(__dirname, "..", "data", "state.json");
+}
+
+const FILE = resolveStateFile();
 
 let state = { byDate: {} };
 
 function load() {
+  try {
+    fs.mkdirSync(path.dirname(FILE), { recursive: true }); // ensure the dir (e.g. volume mount) exists
+  } catch (e) {
+    console.error("Could not create state directory:", e.message);
+  }
   try {
     state = JSON.parse(fs.readFileSync(FILE, "utf8"));
     if (!state.byDate) state.byDate = {};
   } catch {
     state = { byDate: {} };
   }
+  console.log(`Globle state file: ${FILE}`);
 }
 load();
 

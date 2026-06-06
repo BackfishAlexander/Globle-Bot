@@ -70,11 +70,31 @@ Requires **Node.js 18+**.
    ```
    (Players must share a server with the bot so it can DM them notifications.)
 
+## Deploying (Railway / containers) — persisting data
+
+Hosts like Railway, Fly, or any container have an **ephemeral filesystem**: every deploy
+starts a fresh container, so anything written to the app directory (including
+`data/state.json`) is wiped. To keep player history across deploys, store the state file
+on a **persistent volume**.
+
+**On Railway:**
+1. Open your service → **Settings** (or the **Volumes** section) → **Add Volume**.
+2. Give it any mount path, e.g. `/data`.
+3. Redeploy. That's it — the bot auto-detects Railway's `RAILWAY_VOLUME_MOUNT_PATH` and
+   writes `state.json` there. Confirm in the deploy logs: `Globle state file: /data/state.json`.
+
+**Anywhere else:** set `STATE_FILE` to a path on a persistent disk, e.g.
+`STATE_FILE=/var/lib/globle/state.json`.
+
+The bot resolves the state path in this order: `STATE_FILE` → `RAILWAY_VOLUME_MOUNT_PATH` →
+local `data/state.json` (dev default). The directory is created automatically.
+
 ## Notes
 
 - **Timezone:** the daily answer depends on the date string sent to globle-game.com, so
   the bot uses a single `GLOBLE_TZ` for everyone to keep the shared leaderboard consistent.
-- **Storage:** games are persisted to `data/state.json` (a simple JSON file; git-ignored).
+- **Storage:** games are persisted to a single JSON file (git-ignored). See the deploy
+  section above for keeping it across redeploys.
 - **Privacy:** gameplay replies are ephemeral (only you see them); cross-player
   notifications are sent via DM.
 

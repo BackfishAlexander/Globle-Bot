@@ -136,6 +136,25 @@ async function finishGame(date, player, answer, boardBuffer) {
   }
 }
 
+/**
+ * Post a public (non-ephemeral) one-liner to the channel where the player ran
+ * the command, announcing that they finished. No mentions, no map, no spoilers.
+ */
+async function announceFinish(interaction, player) {
+  const channel = interaction.channel;
+  if (!channel || typeof channel.send !== "function") return; // e.g. ran in DMs
+  const n = player.guessCount;
+  const turns = `${n} ${n === 1 ? "guess" : "guesses"}`;
+  const content = player.win
+    ? `🌍 **${player.displayName}** got today's Globle in **${turns}**! 🟩`
+    : `🏳️ **${player.displayName}** gave up on today's Globle after ${turns}.`;
+  try {
+    await channel.send({ content, allowedMentions: { parse: [] } });
+  } catch (e) {
+    console.error("Could not post public finish message:", e.message);
+  }
+}
+
 // --- Command handlers -------------------------------------------------------
 
 async function handleGloble(interaction) {
@@ -207,6 +226,7 @@ async function handleGuess(interaction) {
     store.touch();
     const board = await renderPlayerBoard(player, answer, true);
     await finishGame(date, player, answer, board);
+    await announceFinish(interaction, player);
     return interaction.editReply({
       embeds: [buildGameEmbed(player, answer, true), buildLeaderboardEmbed(date)],
       files: [boardAttachment(board)],
@@ -248,6 +268,7 @@ async function handleGiveUp(interaction) {
   store.touch();
   const board = await renderPlayerBoard(player, answer, true);
   await finishGame(date, player, answer, board);
+  await announceFinish(interaction, player);
   return interaction.editReply({
     embeds: [buildGameEmbed(player, answer, true), buildLeaderboardEmbed(date)],
     files: [boardAttachment(board)],

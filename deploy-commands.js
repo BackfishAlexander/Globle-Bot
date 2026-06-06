@@ -2,7 +2,7 @@
 
 /**
  * Registers the bot's slash commands with Discord.
- *
+ *   BASED GAMER MODE
  *   node deploy-commands.js
  *
  * Set GUILD_ID in .env to register instantly to a single test server.

@@ -54,10 +54,25 @@ function resultGrid(player) {
   return player.guesses.map((g) => g.emoji).join("");
 }
 
-/** A one-line summary like "✅ 7 guesses  🟧🟨🟥🟩". */
-function resultLine(player) {
-  const status = player.win ? `✅ ${player.guessCount} guesses` : `🏳️ gave up (${player.guessCount} guesses)`;
-  return `${status}  ${resultGrid(player)}`;
+/** Short status like "✅ 7 guesses" or "🏳️ gave up (7 guesses)". */
+function statusText(player) {
+  return player.win
+    ? `✅ ${player.guessCount} guesses`
+    : `🏳️ gave up (${player.guessCount} guesses)`;
+}
+
+/**
+ * The actual countries a player guessed, in order, each with its proximity
+ * colour and distance (the answer shows no distance). Capped to Discord's
+ * 1024-char field limit.
+ */
+function guessList(player) {
+  const lines = player.guesses.map((g) =>
+    g.correct ? `${g.emoji} **${g.name}**` : `${g.emoji} ${g.name} — ${km(g.proximity)} km`
+  );
+  let out = lines.join("\n") || "_no guesses_";
+  if (out.length > 1024) out = out.slice(0, 1010).replace(/\n[^\n]*$/, "") + "\n…";
+  return out;
 }
 
 /** The ongoing board a player sees while playing: their guesses, closest first. */
@@ -107,8 +122,16 @@ function buildLeaderboardEmbed(date) {
     embed.setDescription("Nobody has finished yet.");
     return embed;
   }
-  const lines = players.map((p, i) => `**${i + 1}.** ${p.displayName} — ${resultLine(p)}`);
-  embed.setDescription(lines.join("\n").slice(0, 4000));
+  embed.setDescription("Each player's guesses, in the order they made them:");
+  // One field per finisher (Discord allows up to 25 fields).
+  const shown = players.slice(0, 25);
+  for (let i = 0; i < shown.length; i++) {
+    const p = shown[i];
+    embed.addFields({ name: `${i + 1}. ${p.displayName} — ${statusText(p)}`, value: guessList(p) });
+  }
+  if (players.length > shown.length) {
+    embed.addFields({ name: "​", value: `…and ${players.length - shown.length} more.` });
+  }
   return embed;
 }
 
@@ -122,7 +145,8 @@ async function finishGame(date, player, answer, boardBuffer) {
   const notice = new EmbedBuilder()
     .setColor(player.win ? 0x57f287 : 0xed4245)
     .setTitle("🌍 New Globle finisher!")
-    .setDescription(`**${player.displayName}** just finished today's Globle.\n\n${resultLine(player)}`)
+    .setDescription(`**${player.displayName}** just finished today's Globle — ${statusText(player)}.`)
+    .addFields({ name: "Their guesses", value: guessList(player) })
     .setImage(`attachment://${BOARD_FILE}`)
     .setFooter({ text: `Today's Globle • ${date}` });
 
